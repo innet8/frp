@@ -163,6 +163,10 @@ type ServerCommonConf struct {
 	// UDPPacketSize specifies the UDP packet size
 	// By default, this value is 1500
 	UDPPacketSize int64 `json:"udp_packet_size"`
+	//
+	PublishOnlineUrl string `json:"publish_online_url"`
+	PublishOfflineUrl string `json:"publish_offline_url"`
+	PublishToken string `json:"publish_token"`
 }
 
 // GetDefaultServerConf returns a server configuration with reasonable
@@ -449,6 +453,18 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 	if tmpStr, ok := conf.Get("common", "tls_trusted_ca_file"); ok {
 		cfg.TLSTrustedCaFile = tmpStr
 		cfg.TLSOnly = true
+	}
+
+	if tmpStr, ok := conf.Get("publish", "publish_online_url"); ok {
+		cfg.PublishOnlineUrl = tmpStr
+	}
+
+	if tmpStr, ok := conf.Get("publish", "publish_offline_url"); ok {
+		cfg.PublishOfflineUrl = tmpStr
+	}
+
+	if tmpStr, ok := conf.Get("publish", "publish_token"); ok {
+		cfg.PublishToken = tmpStr
 	}
 
 	return

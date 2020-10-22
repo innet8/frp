@@ -17,9 +17,11 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/idoubi/goz"
 	"io"
 	"net"
 	"runtime/debug"
+	"strconv"
 	"sync"
 	"time"
 
@@ -378,6 +380,22 @@ func (ctl *Control) stoper() {
 		pxy.Close()
 		ctl.pxyManager.Del(pxy.GetName())
 		metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
+		// 发布状态
+		if ctl.serverCfg.PublishOfflineUrl != "" {
+			cli := goz.NewClient()
+			_, err := cli.Get(ctl.serverCfg.PublishOfflineUrl, goz.Options{
+				Timeout: 10.0,
+				Query: map[string]interface{}{
+					"token":     ctl.serverCfg.PublishToken,
+					"name":      pxy.GetName(),
+					"runid":     pxy.GetUserInfo().RunID,
+					"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
+				},
+			})
+			if err != nil {
+				xl.Info("publishing offline status error: [%s]", err.Error())
+			}
+		}
 	}
 
 	ctl.allShutdown.Done()

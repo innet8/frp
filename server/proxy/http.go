@@ -15,9 +15,12 @@
 package proxy
 
 import (
+	"github.com/idoubi/goz"
 	"io"
 	"net"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/fatedier/frp/pkg/config"
 	frpNet "github.com/fatedier/frp/pkg/util/net"
@@ -90,6 +93,23 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 			}
 			addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, int(pxy.serverCfg.VhostHTTPPort)))
 			xl.Info("http proxy listen for host [%s] location [%s] group [%s]", routeConfig.Domain, routeConfig.Location, pxy.cfg.Group)
+			// 发布状态
+			if pxy.serverCfg.PublishOnlineUrl != "" {
+				cli := goz.NewClient()
+				_, err := cli.Get(pxy.serverCfg.PublishOnlineUrl, goz.Options{
+					Timeout: 10.0,
+					Query: map[string]interface{}{
+						"token":     pxy.serverCfg.PublishToken,
+						"name":      pxy.GetName(),
+						"runid":     pxy.GetUserInfo().RunID,
+						"domain":    routeConfig.Domain,
+						"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
+					},
+				})
+				if err != nil {
+					xl.Info("publishing online status error: [%s]", err.Error())
+				}
+			}
 		}
 	}
 
