@@ -15,7 +15,7 @@
 package proxy
 
 import (
-	"github.com/idoubi/goz"
+	"github.com/nahid/gohttp"
 	"io"
 	"net"
 	"strconv"
@@ -95,20 +95,17 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 			xl.Info("http proxy listen for host [%s] location [%s] group [%s]", routeConfig.Domain, routeConfig.Location, pxy.cfg.Group)
 			// 发布状态
 			if pxy.serverCfg.PublishOnlineUrl != "" {
-				cli := goz.NewClient()
-				_, err := cli.Get(pxy.serverCfg.PublishOnlineUrl, goz.Options{
-					Timeout: 10.0,
-					Query: map[string]interface{}{
+				req := gohttp.NewRequest()
+				ch := make(chan *gohttp.AsyncResponse)
+				req.
+					Query(map[string]string{
 						"token":     pxy.serverCfg.PublishToken,
 						"name":      pxy.GetName(),
 						"runid":     pxy.GetUserInfo().RunID,
 						"domain":    routeConfig.Domain,
 						"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
-					},
-				})
-				if err != nil {
-					xl.Info("publishing online status error: [%s]", err.Error())
-				}
+					}).
+					AsyncGet(pxy.serverCfg.PublishOnlineUrl, ch)
 			}
 		}
 	}
