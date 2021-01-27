@@ -20,6 +20,7 @@ import (
 	"github.com/nahid/gohttp"
 	"io"
 	"net"
+	"os"
 	"runtime/debug"
 	"strconv"
 	"sync"
@@ -380,18 +381,19 @@ func (ctl *Control) stoper() {
 		pxy.Close()
 		ctl.pxyManager.Del(pxy.GetName())
 		metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
-		// 发布状态
-		if ctl.serverCfg.PublishOfflineUrl != "" {
+		// 发布状态（离线）
+		if os.Getenv("FRPS_PUBLISH_URL") != "" {
 			req := gohttp.NewRequest()
 			ch := make(chan *gohttp.AsyncResponse)
 			req.
 				Query(map[string]string{
-					"token":     ctl.serverCfg.PublishToken,
+					"act":       "offline",
+					"token":     os.Getenv("FRPS_PUBLISH_TOKEN"),
 					"name":      pxy.GetName(),
 					"runid":     pxy.GetUserInfo().RunID,
 					"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
 				}).
-				AsyncGet(ctl.serverCfg.PublishOfflineUrl, ch)
+				AsyncGet(os.Getenv("FRPS_PUBLISH_URL"), ch)
 		}
 	}
 
@@ -423,7 +425,7 @@ func (ctl *Control) manager() {
 	for {
 		select {
 		case <-heartbeat.C:
-			if time.Since(ctl.lastPing) > time.Duration(ctl.serverCfg.HeartBeatTimeout)*time.Second {
+			if time.Since(ctl.lastPing) > time.Duration(ctl.serverCfg.HeartbeatTimeout)*time.Second {
 				xl.Warn("heartbeat timeout")
 				return
 			}

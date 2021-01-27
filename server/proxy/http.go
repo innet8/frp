@@ -18,6 +18,7 @@ import (
 	"github.com/nahid/gohttp"
 	"io"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -93,19 +94,20 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 			}
 			addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, int(pxy.serverCfg.VhostHTTPPort)))
 			xl.Info("http proxy listen for host [%s] location [%s] group [%s]", routeConfig.Domain, routeConfig.Location, pxy.cfg.Group)
-			// 发布状态
-			if pxy.serverCfg.PublishOnlineUrl != "" {
+			// 发布状态（上线）
+			if os.Getenv("FRPS_PUBLISH_URL") != "" {
 				req := gohttp.NewRequest()
 				ch := make(chan *gohttp.AsyncResponse)
 				req.
 					Query(map[string]string{
-						"token":     pxy.serverCfg.PublishToken,
+						"act":       "online",
+						"token":     os.Getenv("FRPS_PUBLISH_TOKEN"),
 						"name":      pxy.GetName(),
 						"runid":     pxy.GetUserInfo().RunID,
 						"domain":    routeConfig.Domain,
 						"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
 					}).
-					AsyncGet(pxy.serverCfg.PublishOnlineUrl, ch)
+					AsyncGet(os.Getenv("FRPS_PUBLISH_URL"), ch)
 			}
 		}
 	}
