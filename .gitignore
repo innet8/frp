@@ -32,3 +32,6 @@ vendor/
 
 # Cache
 *.swp
+
+._*
+.circleci
