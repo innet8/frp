@@ -388,7 +388,6 @@ func (ctl *Control) stoper() {
 			req.
 				Query(map[string]string{
 					"act":       "offline",
-					"token":     os.Getenv("FRPS_PUBLISH_TOKEN"),
 					"name":      pxy.GetName(),
 					"runid":     pxy.GetUserInfo().RunID,
 					"timestamp": strconv.FormatInt(time.Now().Unix(), 10),

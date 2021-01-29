@@ -101,7 +101,6 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 				req.
 					Query(map[string]string{
 						"act":       "online",
-						"token":     os.Getenv("FRPS_PUBLISH_TOKEN"),
 						"name":      pxy.GetName(),
 						"runid":     pxy.GetUserInfo().RunID,
 						"domain":    routeConfig.Domain,
