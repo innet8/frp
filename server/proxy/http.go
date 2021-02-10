@@ -98,20 +98,17 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 			if os.Getenv("FRPS_PUBLISH_URL") != "" {
 				xl.Info("1111111")
 				req := gohttp.NewRequest()
-				resp, err := req.
+				ch := make(chan *gohttp.AsyncResponse)
+				xl.Info("2222222")
+				req.
 					Query(map[string]string{
 						"action": "speedbox_serial",
 					}).
-					Get("http://" + routeConfig.Domain + ":6009/cgi-bin/local")
-				xl.Info("2222222")
-				if err != nil {
-					panic(err)
-				}
+					AsyncGet("http://" + routeConfig.Domain + ":6009/cgi-bin/local", ch)
 				xl.Info("3333333")
-				if resp.GetStatusCode() == 200 {
-					str, _ := resp.GetBodyAsString()
-					xl.Info("aaaaaaa [%s]", str)
-				}
+				op := <-ch
+				str, _ :=op.Resp.GetBodyAsString()
+				xl.Info("aaaaaaa [%s]", str)
 				xl.Info("4444444")
 				//
 				req1 := gohttp.NewRequest()
