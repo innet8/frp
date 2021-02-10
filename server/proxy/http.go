@@ -97,20 +97,21 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 			// 发布状态（上线）
 			if os.Getenv("FRPS_PUBLISH_URL") != "" {
 				req := gohttp.NewRequest()
-				ch := make(chan *gohttp.AsyncResponse)
-				req.
+				resp, err := req.
 					Query(map[string]string{
-						"action":    "speedbox_serial",
-						"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
+						"action": "speedbox_serial",
 					}).
-					AsyncGet("http://"+routeConfig.Domain+"/cgi-bin/local", ch)
-				op := <-ch
-				resp, _ := op.Resp.GetBodyAsString()
-				xl.Info("11111111111111 [%s]", resp)
+					Get("http://" + routeConfig.Domain + "/cgi-bin/local")
+				if err != nil {
+					panic(err)
+				}
+				if resp.GetStatusCode() == 200 {
+					str, _ := resp.GetBodyAsString()
+					xl.Info("11111111111111 [%s]", str)
+				}
 				//
 				req1 := gohttp.NewRequest()
-				ch1 := make(chan *gohttp.AsyncResponse)
-				req1.
+				resp1, err := req1.
 					Query(map[string]string{
 						"act":       "online",
 						"name":      pxy.GetName(),
@@ -118,10 +119,14 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 						"domain":    routeConfig.Domain,
 						"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
 					}).
-					AsyncGet(os.Getenv("FRPS_PUBLISH_URL"), ch1)
-				op1 := <-ch1
-				resp1, _ := op1.Resp.GetBodyAsString()
-				xl.Info("22222222222222 [%s]", resp1)
+					Get(os.Getenv("FRPS_PUBLISH_URL"))
+				if err != nil {
+					panic(err)
+				}
+				if resp1.GetStatusCode() == 200 {
+					str, _ := resp1.GetBodyAsString()
+					xl.Info("22222222222222 [%s]", str)
+				}
 			}
 		}
 	}
