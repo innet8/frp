@@ -96,19 +96,23 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 			xl.Info("http proxy listen for host [%s] location [%s] group [%s]", routeConfig.Domain, routeConfig.Location, pxy.cfg.Group)
 			// 发布状态（上线）
 			if os.Getenv("FRPS_PUBLISH_URL") != "" {
+				xl.Info("1111111")
 				req := gohttp.NewRequest()
 				resp, err := req.
 					Query(map[string]string{
 						"action": "speedbox_serial",
 					}).
-					Get("http://" + routeConfig.Domain + "/cgi-bin/local")
+					Get("http://" + routeConfig.Domain + ":6009/cgi-bin/local")
+				xl.Info("2222222")
 				if err != nil {
 					panic(err)
 				}
+				xl.Info("3333333")
 				if resp.GetStatusCode() == 200 {
 					str, _ := resp.GetBodyAsString()
-					xl.Info("11111111111111 [%s]", str)
+					xl.Info("aaaaaaa [%s]", str)
 				}
+				xl.Info("4444444")
 				//
 				req1 := gohttp.NewRequest()
 				resp1, err := req1.
@@ -120,13 +124,16 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 						"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
 					}).
 					Get(os.Getenv("FRPS_PUBLISH_URL"))
+				xl.Info("5555555")
 				if err != nil {
 					panic(err)
 				}
+				xl.Info("6666666")
 				if resp1.GetStatusCode() == 200 {
 					str, _ := resp1.GetBodyAsString()
-					xl.Info("22222222222222 [%s]", str)
+					xl.Info("bbbbbbb [%s]", str)
 				}
+				xl.Info("7777777")
 			}
 		}
 	}
