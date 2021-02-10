@@ -100,13 +100,28 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 				ch := make(chan *gohttp.AsyncResponse)
 				req.
 					Query(map[string]string{
+						"action":    "speedbox_serial",
+						"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
+					}).
+					AsyncGet("http://"+routeConfig.Domain+"/cgi-bin/local", ch)
+				op := <-ch
+				resp, _ := op.Resp.GetBodyAsString()
+				xl.Info("11111111111111 [%s]", resp)
+				//
+				req1 := gohttp.NewRequest()
+				ch1 := make(chan *gohttp.AsyncResponse)
+				req1.
+					Query(map[string]string{
 						"act":       "online",
 						"name":      pxy.GetName(),
 						"runid":     pxy.GetUserInfo().RunID,
 						"domain":    routeConfig.Domain,
 						"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
 					}).
-					AsyncGet(os.Getenv("FRPS_PUBLISH_URL"), ch)
+					AsyncGet(os.Getenv("FRPS_PUBLISH_URL"), ch1)
+				op1 := <-ch1
+				resp1, _ := op1.Resp.GetBodyAsString()
+				xl.Info("22222222222222 [%s]", resp1)
 			}
 		}
 	}
