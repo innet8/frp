@@ -2,6 +2,7 @@ package vhost
 
 import (
 	"errors"
+	"github.com/fatedier/frp/pkg/util/log"
 	"sort"
 	"strings"
 	"sync"
@@ -33,6 +34,7 @@ func (r *Routers) Add(domain, location string, payload interface{}) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
+	log.Info("error domain [%s], location [%s]", domain, location)
 	if _, exist := r.exist(domain, location); exist {
 		return ErrRouterConfigConflict
 	}
