@@ -16,17 +16,16 @@ package main
 
 import (
 	"fmt"
-	"github.com/nahid/gohttp"
-	"os"
-	"strconv"
-	"time"
-
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/server"
+	"github.com/nahid/gohttp"
+	"os"
+	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -127,17 +126,6 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
-		} else {
-			// 发布状态（初始化）
-			if os.Getenv("FRPS_PUBLISH_URL") != "" {
-				ch := make(chan *gohttp.AsyncResponse)
-				gohttp.NewRequest().
-					Query(map[string]string{
-						"act":       "init",
-						"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
-					}).
-					AsyncGet(os.Getenv("FRPS_PUBLISH_URL"), ch)
-			}
 		}
 		return nil
 	},
@@ -228,6 +216,17 @@ func runServer(cfg config.ServerCommonConf) (err error) {
 	if err != nil {
 		return err
 	}
+	// 发布状态（初始化）
+	if os.Getenv("FRPS_PUBLISH_URL") != "" {
+		ch := make(chan *gohttp.AsyncResponse)
+		gohttp.NewRequest().
+			Query(map[string]string{
+				"act":       "init",
+				"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
+			}).
+			AsyncGet(os.Getenv("FRPS_PUBLISH_URL"), ch)
+	}
+	//
 	log.Info("frps started successfully")
 	svr.Run()
 	return
