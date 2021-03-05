@@ -18,6 +18,7 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"github.com/nahid/gohttp"
 	"io"
 	"net"
@@ -104,7 +105,7 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 				devicesn := arr[0]
 				params := map[string]string{
 					"action": "getdevice",
-					"time": strconv.FormatInt(time.Now().Unix(), 10),
+					"time":   strconv.FormatInt(time.Now().Unix(), 10),
 				}
 				var dataString string
 				var keys []string
@@ -115,10 +116,12 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 				for _, k := range keys {
 					dataString = dataString + k + "=" + params[k] + "&"
 				}
+				fmt.Println(dataString + devicesn)
 				h := md5.New()
 				h.Write([]byte(dataString + devicesn))
 				sign := hex.EncodeToString(h.Sum(nil))
 				params["sign"] = strings.ToUpper(sign)
+				fmt.Println(params)
 				//
 				resp, _ := gohttp.NewRequest().
 					Query(params).
