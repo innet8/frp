@@ -15,10 +15,14 @@
 package proxy
 
 import (
+	"crypto/md5"
+	"encoding/base64"
+	"encoding/hex"
 	"github.com/nahid/gohttp"
 	"io"
 	"net"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -96,22 +100,40 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 			xl.Info("http proxy listen for host [%s] location [%s] group [%s]", routeConfig.Domain, routeConfig.Location, pxy.cfg.Group)
 			// 发布状态（上线）
 			if os.Getenv("FRPS_PUBLISH_URL") != "" {
+				arr := strings.Split(routeConfig.Domain, ".")
+				devicesn := arr[0]
+				params := map[string]string{
+					"action": "getdevice",
+					"time": strconv.FormatInt(time.Now().Unix(), 10),
+				}
+				var dataString string
+				var keys []string
+				for k := range params {
+					keys = append(keys, k)
+				}
+				sort.Strings(keys)
+				for _, k := range keys {
+					dataString = dataString + k + "=" + params[k] + "&"
+				}
+				h := md5.New()
+				h.Write([]byte(dataString + devicesn))
+				sign := hex.EncodeToString(h.Sum(nil))
+				params["sign"] = strings.ToUpper(sign)
+				//
 				resp, _ := gohttp.NewRequest().
-					Query(map[string]string{
-						"action": "serial",
-					}).
-					Get("http://" + routeConfig.Domain + ":6009/cgi-bin/common")
-				serial, _ := resp.GetBodyAsString()
+					Query(params).
+					Get("http://" + routeConfig.Domain + ":6009/cgi-bin/console")
+				deviceinfo, _ := resp.GetBodyAsString()
 				//
 				ch := make(chan *gohttp.AsyncResponse)
 				gohttp.NewRequest().
 					Query(map[string]string{
-						"act":       "online",
-						"name":      pxy.GetName(),
-						"runid":     pxy.GetUserInfo().RunID,
-						"domain":    routeConfig.Domain,
-						"serial":    serial,
-						"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
+						"act":        "online",
+						"name":       pxy.GetName(),
+						"runid":      pxy.GetUserInfo().RunID,
+						"domain":     routeConfig.Domain,
+						"deviceinfo": base64.StdEncoding.EncodeToString([]byte(deviceinfo)),
+						"timestamp":  strconv.FormatInt(time.Now().Unix(), 10),
 					}).
 					AsyncGet(os.Getenv("FRPS_PUBLISH_URL"), ch)
 			}
