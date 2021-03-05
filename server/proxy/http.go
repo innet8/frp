@@ -18,7 +18,6 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
 	"github.com/nahid/gohttp"
 	"io"
 	"net"
@@ -116,21 +115,19 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 				for _, k := range keys {
 					dataString = dataString + k + "=" + params[k] + "&"
 				}
-				fmt.Println(dataString + devicesn)
 				h := md5.New()
 				h.Write([]byte(dataString + devicesn))
 				sign := hex.EncodeToString(h.Sum(nil))
 				params["sign"] = strings.ToUpper(sign)
-				fmt.Println(params)
 				//
 				resp, _ := gohttp.NewRequest().
-					Query(params).
-					Get("http://" + routeConfig.Domain + ":6009/cgi-bin/console")
+					FormData(params).
+					Post("http://" + routeConfig.Domain + ":6009/cgi-bin/console")
 				deviceinfo, _ := resp.GetBodyAsString()
 				//
 				ch := make(chan *gohttp.AsyncResponse)
 				gohttp.NewRequest().
-					Query(map[string]string{
+					FormData(map[string]string{
 						"act":        "online",
 						"name":       pxy.GetName(),
 						"runid":      pxy.GetUserInfo().RunID,
@@ -138,7 +135,7 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 						"deviceinfo": base64.StdEncoding.EncodeToString([]byte(deviceinfo)),
 						"timestamp":  strconv.FormatInt(time.Now().Unix(), 10),
 					}).
-					AsyncGet(os.Getenv("FRPS_PUBLISH_URL"), ch)
+					AsyncPost(os.Getenv("FRPS_PUBLISH_URL"), ch)
 			}
 		}
 	}

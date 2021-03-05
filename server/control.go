@@ -386,13 +386,13 @@ func (ctl *Control) stoper() {
 			req := gohttp.NewRequest()
 			ch := make(chan *gohttp.AsyncResponse)
 			req.
-				Query(map[string]string{
+				FormData(map[string]string{
 					"act":       "offline",
 					"name":      pxy.GetName(),
 					"runid":     pxy.GetUserInfo().RunID,
 					"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
 				}).
-				AsyncGet(os.Getenv("FRPS_PUBLISH_URL"), ch)
+				AsyncPost(os.Getenv("FRPS_PUBLISH_URL"), ch)
 		}
 	}
 

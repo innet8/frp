@@ -220,11 +220,11 @@ func runServer(cfg config.ServerCommonConf) (err error) {
 	if os.Getenv("FRPS_PUBLISH_URL") != "" {
 		ch := make(chan *gohttp.AsyncResponse)
 		gohttp.NewRequest().
-			Query(map[string]string{
+			FormData(map[string]string{
 				"act":       "init",
 				"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
 			}).
-			AsyncGet(os.Getenv("FRPS_PUBLISH_URL"), ch)
+			AsyncPost(os.Getenv("FRPS_PUBLISH_URL"), ch)
 	}
 	//
 	log.Info("frps started successfully")
