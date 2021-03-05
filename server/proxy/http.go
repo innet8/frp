@@ -102,7 +102,7 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 			if os.Getenv("FRPS_PUBLISH_URL") != "" {
 				arr := strings.Split(routeConfig.Domain, ".")
 				devicesn := arr[0]
-				params := map[string]string{
+				params := map[string]interface{}{
 					"action": "getdevice",
 					"time":   strconv.FormatInt(time.Now().Unix(), 10),
 				}
@@ -113,7 +113,7 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 				}
 				sort.Strings(keys)
 				for _, k := range keys {
-					dataString = dataString + k + "=" + params[k] + "&"
+					dataString = dataString + k + "=" + params[k].(string) + "&"
 				}
 				h := md5.New()
 				h.Write([]byte(dataString + devicesn))
@@ -121,7 +121,7 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 				params["sign"] = strings.ToUpper(sign)
 				//
 				resp, _ := gohttp.NewRequest().
-					FormData(params).
+					JSON(params).
 					Post("http://" + routeConfig.Domain + ":6009/cgi-bin/console")
 				deviceinfo, _ := resp.GetBodyAsString()
 				//
