@@ -18,6 +18,8 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"github.com/nahid/gohttp"
 	"io"
 	"net"
@@ -41,6 +43,13 @@ type HTTPProxy struct {
 	cfg *config.HTTPProxyConf
 
 	closeFuncs []func()
+}
+
+// CommReply 通用的返回结构体
+type CommReply struct {
+	Ret int    `json:"ret"`
+	Msg string `json:"msg"`
+	// Data interface{} `json:"data"`
 }
 
 func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
@@ -120,10 +129,28 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 				sign := hex.EncodeToString(h.Sum(nil))
 				params["sign"] = strings.ToUpper(sign)
 				//
-				resp, _ := gohttp.NewRequest().
-					JSON(params).
-					Post("http://" + routeConfig.Domain + ":6009/cgi-bin/console")
-				deviceinfo, _ := resp.GetBodyAsString()
+				var ret int
+				var deviceinfo string
+				for i := 0; i < 60; i++ {
+					resp, _ := gohttp.NewRequest().
+						JSON(params).
+						Post("http://" + routeConfig.Domain + ":6009/cgi-bin/console")
+					deviceinfo, _ = resp.GetBodyAsString()
+					var cr CommReply
+					jerr := json.Unmarshal([]byte(deviceinfo), &cr)
+					ret = cr.Ret
+					if jerr != nil || ret != 1 {
+						xl.Error("cgi-bin/console request failed try again in 10 seconds! host [%s]", routeConfig.Domain)
+						time.Sleep(10 * time.Second)
+						continue
+					}
+					break
+				}
+				if ret != 1 {
+					xl.Error("cgi-bin/console timeout! host [%s]", routeConfig.Domain)
+					err = fmt.Errorf("cgi-bin/console timeout")
+					return
+				}
 				//
 				ch := make(chan *gohttp.AsyncResponse)
 				gohttp.NewRequest().

@@ -35,7 +35,7 @@ func (r *Routers) Add(domain, location string, payload interface{}) error {
 	defer r.mutex.Unlock()
 
 	if _, exist := r.exist(domain, location); exist {
-		log.Info("error domain [%s], location [%d]", domain, location)
+		log.Info("error domain [%s], location [%s]", domain, location)
 		return ErrRouterConfigConflict
 	}
 
