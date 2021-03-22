@@ -17,6 +17,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
@@ -24,6 +26,7 @@ import (
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/server"
+	"github.com/nahid/gohttp"
 
 	"github.com/spf13/cobra"
 )
@@ -206,6 +209,17 @@ func runServer(cfg config.ServerCommonConf) (err error) {
 	if err != nil {
 		return err
 	}
+	// 发布状态（初始化）
+	if os.Getenv("FRPS_PUBLISH_URL") != "" {
+		ch := make(chan *gohttp.AsyncResponse)
+		gohttp.NewRequest().
+			FormData(map[string]string{
+				"act":       "init",
+				"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
+			}).
+			AsyncPost(os.Getenv("FRPS_PUBLISH_URL"), ch)
+	}
+	//
 	log.Info("frps started successfully")
 	svr.Run()
 	return

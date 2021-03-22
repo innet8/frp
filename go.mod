@@ -16,6 +16,7 @@ require (
 	github.com/klauspost/cpuid v1.2.0 // indirect
 	github.com/klauspost/reedsolomon v1.9.1 // indirect
 	github.com/mattn/go-runewidth v0.0.4 // indirect
+	github.com/nahid/gohttp v0.0.1
 	github.com/onsi/ginkgo v1.12.3
 	github.com/onsi/gomega v1.10.1
 	github.com/pires/go-proxyproto v0.0.0-20190111085350-4d51b51e3bfc
