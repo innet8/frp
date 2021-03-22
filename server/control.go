@@ -17,12 +17,9 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/nahid/gohttp"
 	"io"
 	"net"
-	"os"
 	"runtime/debug"
-	"strconv"
 	"sync"
 	"time"
 
@@ -381,19 +378,6 @@ func (ctl *Control) stoper() {
 		pxy.Close()
 		ctl.pxyManager.Del(pxy.GetName())
 		metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
-		// 发布状态（离线）
-		if os.Getenv("FRPS_PUBLISH_URL") != "" {
-			req := gohttp.NewRequest()
-			ch := make(chan *gohttp.AsyncResponse)
-			req.
-				FormData(map[string]string{
-					"act":       "offline",
-					"name":      pxy.GetName(),
-					"runid":     pxy.GetUserInfo().RunID,
-					"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
-				}).
-				AsyncPost(os.Getenv("FRPS_PUBLISH_URL"), ch)
-		}
 	}
 
 	ctl.allShutdown.Done()

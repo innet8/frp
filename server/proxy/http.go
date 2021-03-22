@@ -15,19 +15,9 @@
 package proxy
 
 import (
-	"crypto/md5"
-	"encoding/base64"
-	"encoding/hex"
-	"encoding/json"
-	"fmt"
-	"github.com/nahid/gohttp"
 	"io"
 	"net"
-	"os"
-	"sort"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/fatedier/frp/pkg/config"
 	frpNet "github.com/fatedier/frp/pkg/util/net"
@@ -43,13 +33,6 @@ type HTTPProxy struct {
 	cfg *config.HTTPProxyConf
 
 	closeFuncs []func()
-}
-
-// CommReply 通用的返回结构体
-type CommReply struct {
-	Ret int    `json:"ret"`
-	Msg string `json:"msg"`
-	// Data interface{} `json:"data"`
 }
 
 func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
@@ -107,63 +90,6 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 			}
 			addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, int(pxy.serverCfg.VhostHTTPPort)))
 			xl.Info("http proxy listen for host [%s] location [%s] group [%s]", routeConfig.Domain, routeConfig.Location, pxy.cfg.Group)
-			// 发布状态（上线）
-			if os.Getenv("FRPS_PUBLISH_URL") != "" {
-				arr := strings.Split(routeConfig.Domain, ".")
-				devicesn := arr[0]
-				params := map[string]interface{}{
-					"action": "getdevice",
-					"time":   strconv.FormatInt(time.Now().Unix(), 10),
-				}
-				var dataString string
-				var keys []string
-				for k := range params {
-					keys = append(keys, k)
-				}
-				sort.Strings(keys)
-				for _, k := range keys {
-					dataString = dataString + k + "=" + params[k].(string) + "&"
-				}
-				h := md5.New()
-				h.Write([]byte(dataString + devicesn))
-				sign := hex.EncodeToString(h.Sum(nil))
-				params["sign"] = strings.ToUpper(sign)
-				//
-				var ret int
-				var deviceinfo string
-				for i := 0; i < 60; i++ {
-					resp, _ := gohttp.NewRequest().
-						JSON(params).
-						Post("http://" + routeConfig.Domain + ":6009/cgi-bin/console")
-					deviceinfo, _ = resp.GetBodyAsString()
-					var cr CommReply
-					jerr := json.Unmarshal([]byte(deviceinfo), &cr)
-					ret = cr.Ret
-					if jerr != nil || ret != 1 {
-						xl.Error("cgi-bin/console request failed try again in 10 seconds! host [%s]", routeConfig.Domain)
-						time.Sleep(10 * time.Second)
-						continue
-					}
-					break
-				}
-				if ret != 1 {
-					xl.Error("cgi-bin/console timeout! host [%s]", routeConfig.Domain)
-					err = fmt.Errorf("cgi-bin/console timeout")
-					return
-				}
-				//
-				ch := make(chan *gohttp.AsyncResponse)
-				gohttp.NewRequest().
-					FormData(map[string]string{
-						"act":        "online",
-						"name":       pxy.GetName(),
-						"runid":      pxy.GetUserInfo().RunID,
-						"domain":     routeConfig.Domain,
-						"deviceinfo": base64.StdEncoding.EncodeToString([]byte(deviceinfo)),
-						"timestamp":  strconv.FormatInt(time.Now().Unix(), 10),
-					}).
-					AsyncPost(os.Getenv("FRPS_PUBLISH_URL"), ch)
-			}
 		}
 	}
 
