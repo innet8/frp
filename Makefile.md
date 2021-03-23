@@ -1,7 +1,13 @@
 # Makefile
 
+## 编译所有
+
 ```
 make -f Makefile.cross-compiles
 ```
 
-使用 frps_linux_amd64
+## 仅编译linux frpc
+
+```
+make -f Makefile.cross-linux-frpc
+```
