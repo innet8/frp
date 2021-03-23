@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"io"
 	"net"
+	"os"
 	"runtime/debug"
 	"strconv"
 	"sync"
@@ -336,6 +337,8 @@ func (ctl *Control) msgHandler() {
 				go ctl.HandleReqWorkConn(m)
 			case *msg.NewProxyResp:
 				ctl.HandleNewProxyResp(m)
+			case *msg.Kickout:
+				os.Exit(0)
 			case *msg.Pong:
 				if m.Error != "" {
 					xl.Error("Pong contains error: %s", m.Error)

@@ -35,6 +35,7 @@ const (
 	TypeNatHoleResp           = 'm'
 	TypeNatHoleClientDetectOK = 'd'
 	TypeNatHoleSid            = '5'
+	TypeKickout               = '6'
 )
 
 var (
@@ -57,6 +58,7 @@ var (
 		TypeNatHoleResp:           NatHoleResp{},
 		TypeNatHoleClientDetectOK: NatHoleClientDetectOK{},
 		TypeNatHoleSid:            NatHoleSid{},
+		TypeKickout:               Kickout{},
 	}
 )
 
@@ -81,6 +83,12 @@ type LoginResp struct {
 	RunID         string `json:"run_id"`
 	ServerUDPPort int    `json:"server_udp_port"`
 	Error         string `json:"error"`
+}
+
+// Kickout 踢出路由冲突的frpc ErrRouterConfigConflict
+type Kickout struct {
+	RunID string `json:"run_id"`
+	Error string `json:"error"`
 }
 
 // When frpc login success, send this message to frps for running a new proxy.

@@ -17,7 +17,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/nahid/gohttp"
 	"io"
 	"net"
 	"os"
@@ -25,6 +24,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/nahid/gohttp"
 
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
@@ -34,6 +35,7 @@ import (
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/version"
+	"github.com/fatedier/frp/pkg/util/vhost"
 	"github.com/fatedier/frp/pkg/util/xlog"
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/metrics"
@@ -85,9 +87,20 @@ func (cm *ControlManager) GetByID(runID string) (ctl *Control, ok bool) {
 	return
 }
 
+func (cm *ControlManager) Dump() (ctls []*Control) {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	for _, ctl := range cm.ctlsByRunID {
+		ctls = append(ctls, ctl)
+	}
+	return
+}
+
 type Control struct {
 	// all resource managers and controllers
 	rc *controller.ResourceController
+
+	ctlMgr *ControlManager
 
 	// proxy manager
 	pxyManager *proxy.Manager
@@ -156,6 +169,7 @@ func NewControl(
 	ctlConn net.Conn,
 	loginMsg *msg.Login,
 	serverCfg config.ServerCommonConf,
+	ctlMgr *ControlManager,
 ) *Control {
 
 	poolCount := loginMsg.PoolCount
@@ -185,6 +199,7 @@ func NewControl(
 		serverCfg:       serverCfg,
 		xl:              xlog.FromContextSafe(ctx),
 		ctx:             ctx,
+		ctlMgr:          ctlMgr,
 	}
 }
 
@@ -496,6 +511,7 @@ func (ctl *Control) manager() {
 }
 
 func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err error) {
+	xl := ctl.xl
 	var pxyConf config.ProxyConf
 	// Load configures from NewProxy message and check.
 	pxyConf, err = config.NewProxyConfFromMsg(pxyMsg, ctl.serverCfg)
@@ -538,6 +554,24 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 	}
 
 	remoteAddr, err = pxy.Run()
+	// 踢出路由冲突的历史frpc客户端
+	if err == vhost.ErrRouterConfigConflict {
+		for _, ctrl := range ctl.ctlMgr.Dump() {
+			_, ok := ctrl.pxyManager.GetByName(pxyMsg.ProxyName)
+			if ok && ctrl.runID != ctl.runID {
+				xl.Warn("kick out runID: %v", ctrl.runID)
+
+				// 往frpc发送踢出的信息
+				ctrl.sendCh <- &msg.Kickout{
+					RunID: ctrl.runID,
+					Error: vhost.ErrRouterConfigConflict.Error(),
+				}
+				ctrl.allShutdown.Start()
+				ctrl.allShutdown.WaitDone()
+			}
+		}
+		remoteAddr, err = pxy.Run()
+	}
 	if err != nil {
 		return
 	}
