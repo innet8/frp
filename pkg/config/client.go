@@ -204,7 +204,7 @@ func (cfg *ClientCommonConf) Validate() error {
 		}
 	}
 
-	if cfg.Protocol != "tcp" && cfg.Protocol != "kcp" && cfg.Protocol != "websocket" {
+	if cfg.Protocol != "tcp" && cfg.Protocol != "kcp" && cfg.Protocol != "websocket" && cfg.Protocol != "wss" {
 		return fmt.Errorf("invalid protocol")
 	}
 
