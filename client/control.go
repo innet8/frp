@@ -338,6 +338,7 @@ func (ctl *Control) msgHandler() {
 			case *msg.NewProxyResp:
 				ctl.HandleNewProxyResp(m)
 			case *msg.Kickout:
+				xl.Warn("kick out msg: %+v", m)
 				os.Exit(0)
 			case *msg.Pong:
 				if m.Error != "" {
