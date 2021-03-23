@@ -555,7 +555,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 
 	remoteAddr, err = pxy.Run()
 	// 踢出路由冲突的历史frpc客户端
-	if err == vhost.ErrRouterConfigConflict {
+	if err == vhost.ErrRouterConfigConflict && os.Getenv("FRPS_CONFLICT_KICK") == "true" {
 		for _, ctrl := range ctl.ctlMgr.Dump() {
 			_, ok := ctrl.pxyManager.GetByName(pxyMsg.ProxyName)
 			if ok && ctrl.runID != ctl.runID {
