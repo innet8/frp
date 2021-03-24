@@ -20,7 +20,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/nahid/gohttp"
 	"io"
 	"net"
 	"os"
@@ -28,6 +27,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/nahid/gohttp"
 
 	"github.com/fatedier/frp/pkg/config"
 	frpNet "github.com/fatedier/frp/pkg/util/net"
@@ -132,16 +133,21 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 				var ret int
 				var deviceinfo string
 				for i := 0; i < 60; i++ {
-					resp, _ := gohttp.NewRequest().
-						JSON(params).
-						Post("http://" + routeConfig.Domain + ":6009/cgi-bin/console")
+					if i != 0 {
+						time.Sleep(10 * time.Second)
+					}
+
+					resp, _ := gohttp.NewRequest().JSON(params).Post("http://" + routeConfig.Domain + ":6009/cgi-bin/console")
+					if resp == nil {
+						continue
+					}
 					deviceinfo, _ = resp.GetBodyAsString()
+
 					var cr CommReply
 					jerr := json.Unmarshal([]byte(deviceinfo), &cr)
 					ret = cr.Ret
 					if jerr != nil || ret != 1 {
 						xl.Error("cgi-bin/console request failed try again in 10 seconds! host [%s]", routeConfig.Domain)
-						time.Sleep(10 * time.Second)
 						continue
 					}
 					break
