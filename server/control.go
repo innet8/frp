@@ -556,11 +556,11 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 	remoteAddr, err = pxy.Run()
 	// 踢出路由冲突的历史frpc客户端
 	if err == vhost.ErrRouterConfigConflict && os.Getenv("FRPS_CONFLICT_KICK") == "true" {
+		// 尝试踢出导致冲突的其他control
 		for _, ctrl := range ctl.ctlMgr.Dump() {
 			_, ok := ctrl.pxyManager.GetByName(pxyMsg.ProxyName)
 			if ok && ctrl.runID != ctl.runID {
-				xl.Warn("kick out runID: %v", ctrl.runID)
-
+				xl.Warn("kick out runID: %v by proxyName: %s", ctrl.runID, pxyMsg.ProxyName)
 				// 往frpc发送踢出的信息
 				ctrl.sendCh <- &msg.Kickout{
 					RunID: ctrl.runID,
@@ -568,6 +568,19 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 				}
 				ctrl.allShutdown.Start()
 				ctrl.allShutdown.WaitDone()
+			}
+		}
+		// 二次删除冲突的路由 (只针对HTTPReverseProxy)
+		httpCfg, ok := pxyConf.(*config.HTTPProxyConf)
+		if ok && ctl.rc.HTTPReverseProxy != nil {
+			locations := httpCfg.Locations
+			if len(locations) == 0 {
+				locations = []string{""}
+			}
+			for _, tmpDomain := range httpCfg.CustomDomains {
+				for _, tmpLocation := range locations {
+					ctl.rc.HTTPReverseProxy.UnRegister(tmpDomain, tmpLocation)
+				}
 			}
 		}
 		remoteAddr, err = pxy.Run()
