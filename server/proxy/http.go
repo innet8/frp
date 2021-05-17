@@ -209,8 +209,7 @@ func (pxy *HTTPProxy) statusOnline(domain string) {
 			xl.Error(string(debug.Stack()))
 		}
 	}()
-
-	if os.Getenv("FRPS_PUBLISH_URL") != "" {
+	if os.Getenv("FRPS_PUBLISH_URL") != "" && domain != "" && strings.HasPrefix(pxy.GetName(), "web_") {
 		arr := strings.Split(domain, ".")
 		devicesn := arr[0]
 		params := map[string]interface{}{
