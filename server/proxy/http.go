@@ -209,63 +209,76 @@ func (pxy *HTTPProxy) statusOnline(domain string) {
 			xl.Error(string(debug.Stack()))
 		}
 	}()
-	if os.Getenv("FRPS_PUBLISH_URL") != "" && domain != "" && strings.HasPrefix(pxy.GetName(), "web_") {
-		arr := strings.Split(domain, ".")
-		devicesn := arr[0]
-		params := map[string]interface{}{
-			"action": "getdevice",
-			"time":   strconv.FormatInt(time.Now().Unix(), 10),
-		}
-		var dataString string
-		var keys []string
-		for k := range params {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			dataString = dataString + k + "=" + params[k].(string) + "&"
-		}
-		h := md5.New()
-		h.Write([]byte(dataString + devicesn))
-		sign := hex.EncodeToString(h.Sum(nil))
-		params["sign"] = strings.ToUpper(sign)
-		//
-		var ret int
-		var deviceinfo string
-		timestamp := strconv.FormatInt(time.Now().Unix(), 10)
-		for i := 0; i < 1000; i++ {
-			if pxy.closed {
+	if os.Getenv("FRPS_PUBLISH_URL") != "" && domain != "" {
+		if strings.HasPrefix(pxy.GetName(), "web_") {
+			arr := strings.Split(domain, ".")
+			devicesn := arr[0]
+			params := map[string]interface{}{
+				"action": "getdevice",
+				"time":   strconv.FormatInt(time.Now().Unix(), 10),
+			}
+			var dataString string
+			var keys []string
+			for k := range params {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				dataString = dataString + k + "=" + params[k].(string) + "&"
+			}
+			h := md5.New()
+			h.Write([]byte(dataString + devicesn))
+			sign := hex.EncodeToString(h.Sum(nil))
+			params["sign"] = strings.ToUpper(sign)
+			//
+			var ret int
+			var deviceinfo string
+			timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+			for i := 0; i < 1000; i++ {
+				if pxy.closed {
+					break
+				}
+				if i != 0 {
+					time.Sleep(10 * time.Second)
+				}
+
+				resp, _ := gohttp.NewRequest().JSON(params).Post("http://" + domain + ":6009/cgi-bin/console")
+				if resp == nil {
+					continue
+				}
+				deviceinfo, _ = resp.GetBodyAsString()
+
+				var cr CommReply
+				jerr := json.Unmarshal([]byte(deviceinfo), &cr)
+				ret = cr.Ret
+				if jerr != nil || ret != 1 {
+					xl.Warn("cgi-bin/console request failed. try again in 10 seconds of %d times! host [%s]", i, domain)
+					continue
+				}
+
+				gohttp.NewRequest().
+					FormData(map[string]string{
+						"act":        "online",
+						"name":       pxy.GetName(),
+						"runid":      pxy.GetUserInfo().RunID,
+						"domain":     domain,
+						"deviceinfo": base64.StdEncoding.EncodeToString([]byte(deviceinfo)),
+						"timestamp":  timestamp,
+					}).
+					Post(os.Getenv("FRPS_PUBLISH_URL"))
 				break
 			}
-			if i != 0 {
-				time.Sleep(10 * time.Second)
-			}
-
-			resp, _ := gohttp.NewRequest().JSON(params).Post("http://" + domain + ":6009/cgi-bin/console")
-			if resp == nil {
-				continue
-			}
-			deviceinfo, _ = resp.GetBodyAsString()
-
-			var cr CommReply
-			jerr := json.Unmarshal([]byte(deviceinfo), &cr)
-			ret = cr.Ret
-			if jerr != nil || ret != 1 {
-				xl.Warn("cgi-bin/console request failed. try again in 10 seconds of %d times! host [%s]", i, domain)
-				continue
-			}
-
+		} else if strings.HasPrefix(pxy.GetName(), "node_") {
+			timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 			gohttp.NewRequest().
 				FormData(map[string]string{
 					"act":        "online",
 					"name":       pxy.GetName(),
 					"runid":      pxy.GetUserInfo().RunID,
 					"domain":     domain,
-					"deviceinfo": base64.StdEncoding.EncodeToString([]byte(deviceinfo)),
 					"timestamp":  timestamp,
 				}).
 				Post(os.Getenv("FRPS_PUBLISH_URL"))
-			break
 		}
 	}
 }
