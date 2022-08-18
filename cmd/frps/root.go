@@ -17,7 +17,8 @@ package main
 import (
 	"fmt"
 	"os"
-
+	"net/http"
+	"net/url"
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/util/log"
@@ -215,6 +216,15 @@ func runServer(cfg config.ServerCommonConf) (err error) {
 	if err != nil {
 		return err
 	}
+	// 发布状态（初始化）
+	if os.Getenv("FRPS_PUBLISH_URL") != "" {
+		data := url.Values{
+			"act":       "init",
+			"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
+		}
+		http.PostForm(os.Getenv("FRPS_PUBLISH_URL"), data)
+	}
+	//
 	log.Info("frps started successfully")
 	svr.Run()
 	return

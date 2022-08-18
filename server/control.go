@@ -22,6 +22,7 @@ import (
 	"runtime/debug"
 	"sync"
 	"time"
+	"net/url"
 
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
@@ -376,6 +377,16 @@ func (ctl *Control) stoper() {
 		pxy.Close()
 		ctl.pxyManager.Del(pxy.GetName())
 		metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
+		// 发布状态（离线）
+		if os.Getenv("FRPS_PUBLISH_URL") != "" {
+			data := url.Values{
+				"act":       "offline",
+				"name":      pxy.GetName(),
+				"runid":     pxy.GetUserInfo().RunID,
+				"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
+			}
+			http.PostForm(os.Getenv("FRPS_PUBLISH_URL"), data)
+		}
 
 		notifyContent := &plugin.CloseProxyContent{
 			User: plugin.UserInfo{

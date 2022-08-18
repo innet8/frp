@@ -15,9 +15,20 @@
 package proxy
 
 import (
+	"crypto/md5"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
 	"io"
 	"net"
+	"os"
+	"runtime/debug"
+	"sort"
+	"strconv"
 	"strings"
+	"time"
+	"net/http"
+	"net/url"
 
 	"github.com/fatedier/frp/pkg/config"
 	frpNet "github.com/fatedier/frp/pkg/util/net"
@@ -125,6 +136,8 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 
 			xl.Info("http proxy listen for host [%s] location [%s] group [%s], routeByHTTPUser [%s]",
 				routeConfig.Domain, routeConfig.Location, pxy.cfg.Group, pxy.cfg.RouteByHTTPUser)
+			// 发布状态（上线）
+			go pxy.statusOnline(routeConfig.Domain)
 		}
 	}
 	remoteAddr = strings.Join(addrs, ",")
@@ -178,5 +191,85 @@ func (pxy *HTTPProxy) Close() {
 	pxy.BaseProxy.Close()
 	for _, closeFn := range pxy.closeFuncs {
 		closeFn()
+	}
+}
+
+// 发布状态（上线）
+func (pxy *HTTPProxy) statusOnline(domain string) {
+	xl := pxy.xl
+	defer func() {
+		if err := recover(); err != nil {
+			xl.Error("panic error: %v", err)
+			xl.Error(string(debug.Stack()))
+		}
+	}()
+	if os.Getenv("FRPS_PUBLISH_URL") != "" && domain != "" {
+		if strings.HasPrefix(pxy.GetName(), "web_") {
+			arr := strings.Split(domain, ".")
+			devicesn := arr[0]
+			params := map[string]interface{}{
+				"action": "getdevice",
+				"time":   strconv.FormatInt(time.Now().Unix(), 10),
+			}
+			var dataString string
+			var keys []string
+			for k := range params {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				dataString = dataString + k + "=" + params[k].(string) + "&"
+			}
+			h := md5.New()
+			h.Write([]byte(dataString + devicesn))
+			sign := hex.EncodeToString(h.Sum(nil))
+			params["sign"] = strings.ToUpper(sign)
+			//
+			var ret int
+			var deviceinfo string
+			timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+			for i := 0; i < 1000; i++ {
+				if pxy.isClosed() {
+					break
+				}
+				if i != 0 {
+					time.Sleep(10 * time.Second)
+				}
+				body := strings.NewReader(string(json.Marshal(params)))
+				resp, _ := http.Post("http://" + domain + ":6009/cgi-bin/console", "application/x-www-form-urlencoded", body)
+				if resp == nil {
+					continue
+				}
+				deviceinfo, _ = resp.GetBodyAsString()
+
+				var cr CommReply
+				jerr := json.Unmarshal([]byte(deviceinfo), &cr)
+				ret = cr.Ret
+				if jerr != nil || ret != 1 {
+					xl.Warn("cgi-bin/console request failed. try again in 10 seconds of %d times! host [%s]", i, domain)
+					continue
+				}
+				data := url.Values{
+					"act":        "online",
+					"name":       pxy.GetName(),
+					"runid":      pxy.GetUserInfo().RunID,
+					"domain":     domain,
+					"deviceinfo": base64.StdEncoding.EncodeToString([]byte(deviceinfo)),
+					"timestamp":  timestamp,
+				}
+				http.PostForm(os.Getenv("FRPS_PUBLISH_URL"), data)
+				break
+			}
+		} else if strings.HasPrefix(pxy.GetName(), "node_") {
+			timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+			data := url.Values{
+				"act":        "online",
+				"name":       pxy.GetName(),
+				"runid":      pxy.GetUserInfo().RunID,
+				"domain":     domain,
+				"timestamp":  timestamp,
+			}
+			http.PostForm(os.Getenv("FRPS_PUBLISH_URL"), data)
+		}
 	}
 }
