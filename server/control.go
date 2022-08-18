@@ -17,12 +17,14 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/nahid/gohttp"
 	"io"
 	"net"
+	"os"
 	"runtime/debug"
+	"strconv"
 	"sync"
 	"time"
-	"net/url"
 
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
@@ -379,13 +381,14 @@ func (ctl *Control) stoper() {
 		metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
 		// 发布状态（离线）
 		if os.Getenv("FRPS_PUBLISH_URL") != "" {
-			data := url.Values{
+			req := gohttp.NewRequest()
+			ch := make(chan *gohttp.AsyncResponse)
+			req.FormData(map[string]string{
 				"act":       "offline",
 				"name":      pxy.GetName(),
 				"runid":     pxy.GetUserInfo().RunID,
 				"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
-			}
-			http.PostForm(os.Getenv("FRPS_PUBLISH_URL"), data)
+			}).AsyncPost(os.Getenv("FRPS_PUBLISH_URL"), ch)
 		}
 
 		notifyContent := &plugin.CloseProxyContent{

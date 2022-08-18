@@ -16,15 +16,16 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"net/http"
-	"net/url"
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/server"
+	"github.com/nahid/gohttp"
+	"os"
+	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -218,11 +219,12 @@ func runServer(cfg config.ServerCommonConf) (err error) {
 	}
 	// 发布状态（初始化）
 	if os.Getenv("FRPS_PUBLISH_URL") != "" {
-		data := url.Values{
-			"act":       "init",
-			"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
-		}
-		http.PostForm(os.Getenv("FRPS_PUBLISH_URL"), data)
+		ch := make(chan *gohttp.AsyncResponse)
+		gohttp.NewRequest().
+			FormData(map[string]string{
+				"act":       "init",
+				"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
+			}).AsyncPost(os.Getenv("FRPS_PUBLISH_URL"), ch)
 	}
 	//
 	log.Info("frps started successfully")

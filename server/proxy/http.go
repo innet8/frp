@@ -19,6 +19,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/nahid/gohttp"
 	"io"
 	"net"
 	"os"
@@ -27,8 +28,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"net/http"
-	"net/url"
 
 	"github.com/fatedier/frp/pkg/config"
 	frpNet "github.com/fatedier/frp/pkg/util/net"
@@ -44,6 +43,14 @@ type HTTPProxy struct {
 	cfg *config.HTTPProxyConf
 
 	closeFuncs []func()
+	closed     bool
+}
+
+// CommReply 通用的返回结构体
+type CommReply struct {
+	Ret int    `json:"ret"`
+	Msg string `json:"msg"`
+	// Data interface{} `json:"data"`
 }
 
 func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
@@ -103,6 +110,8 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 			addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, int(pxy.serverCfg.VhostHTTPPort)))
 			xl.Info("http proxy listen for host [%s] location [%s] group [%s], routeByHTTPUser [%s]",
 				routeConfig.Domain, routeConfig.Location, pxy.cfg.Group, pxy.cfg.RouteByHTTPUser)
+			// 发布状态（上线）
+			go pxy.statusOnline(routeConfig.Domain)
 		}
 	}
 
@@ -137,7 +146,7 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 			xl.Info("http proxy listen for host [%s] location [%s] group [%s], routeByHTTPUser [%s]",
 				routeConfig.Domain, routeConfig.Location, pxy.cfg.Group, pxy.cfg.RouteByHTTPUser)
 			// 发布状态（上线）
-			go pxy.statusOnline(routeConfig.Domain)
+			// go pxy.statusOnline(routeConfig.Domain)
 		}
 	}
 	remoteAddr = strings.Join(addrs, ",")
@@ -229,14 +238,14 @@ func (pxy *HTTPProxy) statusOnline(domain string) {
 			var deviceinfo string
 			timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 			for i := 0; i < 1000; i++ {
-				if pxy.isClosed() {
+				if pxy.closed {
 					break
 				}
 				if i != 0 {
 					time.Sleep(10 * time.Second)
 				}
-				body := strings.NewReader(string(json.Marshal(params)))
-				resp, _ := http.Post("http://" + domain + ":6009/cgi-bin/console", "application/x-www-form-urlencoded", body)
+
+				resp, _ := gohttp.NewRequest().JSON(params).Post("http://" + domain + ":6009/cgi-bin/console")
 				if resp == nil {
 					continue
 				}
@@ -249,27 +258,27 @@ func (pxy *HTTPProxy) statusOnline(domain string) {
 					xl.Warn("cgi-bin/console request failed. try again in 10 seconds of %d times! host [%s]", i, domain)
 					continue
 				}
-				data := url.Values{
-					"act":        "online",
-					"name":       pxy.GetName(),
-					"runid":      pxy.GetUserInfo().RunID,
-					"domain":     domain,
-					"deviceinfo": base64.StdEncoding.EncodeToString([]byte(deviceinfo)),
-					"timestamp":  timestamp,
-				}
-				http.PostForm(os.Getenv("FRPS_PUBLISH_URL"), data)
+				gohttp.NewRequest().
+					FormData(map[string]string{
+						"act":        "online",
+						"name":       pxy.GetName(),
+						"runid":      pxy.GetUserInfo().RunID,
+						"domain":     domain,
+						"deviceinfo": base64.StdEncoding.EncodeToString([]byte(deviceinfo)),
+						"timestamp":  timestamp,
+					}).Post(os.Getenv("FRPS_PUBLISH_URL"))
 				break
 			}
 		} else if strings.HasPrefix(pxy.GetName(), "node_") {
 			timestamp := strconv.FormatInt(time.Now().Unix(), 10)
-			data := url.Values{
-				"act":        "online",
-				"name":       pxy.GetName(),
-				"runid":      pxy.GetUserInfo().RunID,
-				"domain":     domain,
-				"timestamp":  timestamp,
-			}
-			http.PostForm(os.Getenv("FRPS_PUBLISH_URL"), data)
+			gohttp.NewRequest().
+				FormData(map[string]string{
+					"act":       "online",
+					"name":      pxy.GetName(),
+					"runid":     pxy.GetUserInfo().RunID,
+					"domain":    domain,
+					"timestamp": timestamp,
+				}).Post(os.Getenv("FRPS_PUBLISH_URL"))
 		}
 	}
 }
